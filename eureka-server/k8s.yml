@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eureka-server-deployment
+  labels:
+    app: eureka-server-deployment
+  namespace: blog
+spec:
+  selector:
+    matchLabels:
+      app: eureka-server-deployment
+  template:
+    metadata:
+      labels:
+        app: eureka-server-deployment
+    spec:
+      affinity:
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - eureka-server-deployment
+              weight: 100
+        nodeAffinity:
+          # 调度是必须满足的node
+#          requiredDuringSchedulingIgnoredDuringExecution:
+#            nodeSelectorTerms:
+#              - matchExpressions:
+#                  - key: kubernetes.io/hostname
+#                    operator: In
+#                    values:
+#                      - node153
+          # 优先选择的node
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - node153
+              weight: 80
+      containers:
+        - name: eureka-server
+          image: 192.168.56.152:5000/org.spider.eureka-server:v1.0.0
+          imagePullPolicy: Always
+          env:
+            - name: spring_profiles_active
+              value: k8s
+#            - name: JAVA_TOOL_OPTIONS
+#              value: "-XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=128m -Xms512m -Xmx512m -Xmn256m -Xss1m -XX:SurvivorRatio=8 -XX:+UseConcMarkSweepGC -XX:+PrintGC -XX:+PrintGCDetails -XX:+PrintGCTimeStamps -XX:+PrintGCDateStamps -XX:+PrintHeapAtGC -Xloggc:/dev/gc-%t.log"
+          ports:
+            - containerPort: 8761
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1024Mi
+          livenessProbe:
+            tcpSocket:
+              port: 8761
+          readinessProbe:
+            httpGet:
+              port: 8761
+              path: /
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: FallbackToLogsOnError
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 60
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: eureka-server
+  labels:
+    app: eureka-server
+  namespace: blog
+spec:
+  ports:
+    - port: 8761
+      protocol: TCP
+      targetPort: 8761
+      nodePort: 32000
+  selector:
+    app: eureka-server-deployment
+  type: NodePort
+  sessionAffinity: ClientIP

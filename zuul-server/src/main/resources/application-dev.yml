@@ -1,0 +1,28 @@
+server:
+  port: 7777
+spring:
+  application:
+    name: zuul-server
+eureka:
+  client:
+    registry-fetch-interval-seconds: 5
+    service-url:
+      defaultZone: http://127.0.0.1:8761/eureka/
+  instance:
+    leaseRenewalIntervalInSeconds: 10
+    health-check-url-path: /actuator/health
+zuul:
+  ignored-services: '${spring.application.name}'
+  add-host-header: true
+  add-proxy-headers: true
+  sensitive-headers:
+  force-original-query-string-encoding: true
+  ignored-patterns: /info,/health
+  retryable: true
+  routes:
+    baidu:
+      path: /baidu
+      url: https://www.baidu.com
+    users:
+      path: /users/**
+      service-id: apps-users

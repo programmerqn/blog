@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zuul-server-deployment
+  labels:
+    app: zuul-server-deployment
+  namespace: blog
+spec:
+  selector:
+    matchLabels:
+      app: zuul-server-deployment
+  template:
+    metadata:
+      labels:
+        app: zuul-server-deployment
+    spec:
+      initContainers:
+        - name: init
+          image: busybox:1.31.1-glibc
+          command: ['bash', '-c', "curl --connect-timeout 2 --max-time 5 --retry 60 --retry-delay 1 --retry-max-time 120 http://eureka-server.blog:8761"]
+      containers:
+        - image: 192.168.56.152:5000/org.spider.zuul-server:v1.0.0
+          name: zuul
+          imagePullPolicy: Always
+          env:
+            - name: spring_profiles_active
+              value: k8s
+#            - name: JAVA_TOOL_OPTIONS
+#              value: "-XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=128m -Xms512m -Xmx512m -Xmn256m -Xss1m -XX:SurvivorRatio=8 -XX:+UseConcMarkSweepGC -XX:+PrintGC -XX:+PrintGCDetails -XX:+PrintGCTimeStamps -XX:+PrintGCDateStamps -XX:+PrintHeapAtGC -Xloggc:/dev/gc-%t.log"
+          ports:
+            - containerPort: 7777
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1024Mi
+          livenessProbe:
+            tcpSocket:
+              port: 7777
+          readinessProbe:
+            httpGet:
+              port: 7777
+              path: /actuator/info
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: FallbackToLogsOnError
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      terminationGracePeriodSeconds: 60
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  minReadySeconds: 60
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zuul-server
+  annotations:
+    app: zuul-server
+  namespace: blog
+spec:
+  type: NodePort
+  ports:
+    - port: 7777
+      protocol: TCP
+      targetPort: 7777
+      nodePort: 32001
+  selector:
+    app: zuul-server-deployment
+  sessionAffinity: ClientIP

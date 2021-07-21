@@ -1,0 +1,17 @@
+server:
+  port: 8099
+spring:
+  application:
+    name: apps-users
+eureka:
+  client:
+    registry-fetch-interval-seconds: 5
+    service-url:
+      defaultZone: http://eureka-server.blog:8761/eureka/
+  instance:
+    instance-id: ${spring.cloud.client.ip-address}:${server.port}
+    # 打开注册中心Status显示修改
+    prefer-ip-address: true
+    hostname: ${spring.cloud.client.ip-address}
+    leaseRenewalIntervalInSeconds: 10
+    health-check-url-path: /actuator/health

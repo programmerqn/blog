@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-users
+  labels:
+    app: app-users
+  namespace: blog
+spec:
+  selector:
+    matchLabels:
+      app: app-users
+  template:
+    metadata:
+      labels:
+        app: app-users
+    spec:
+      affinity:
+        # pod 亲和性质
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - eureka-server-deployment
+              weight: 100
+      initContainers:
+        - name: init
+          image: busybox:1.31.1-glibc
+          command: ['bash', '-c', "curl --connect-timeout 2 --max-time 5 --retry 60 --retry-delay 1 --retry-max-time 120 http://eureka-server.blog:8761"]
+      containers:
+        - image: 192.168.56.152:5000/org.spider.apps-users:v1.0.0
+          name: app-users
+          imagePullPolicy: Always
+          env:
+            - name: spring_profiles_active
+              value: k8s
+          resources:
+            requests:
+              cpu: 100m
+              memory: 1024Mi
+            limits:
+              cpu: 1000m
+              memory: 1024Mi
+          # 存活探针
+          ports:
+            - containerPort: 8099
+          livenessProbe:
+            # 探针超时时间
+            timeoutSeconds: 10
+            successThreshold: 1
+            failureThreshold: 2
+            # 探针检测停顿
+            periodSeconds: 30
+            tcpSocket:
+              port: 8099
+          readinessProbe:
+            timeoutSeconds: 10
+            periodSeconds: 30
+            successThreshold: 1
+            failureThreshold: 2
+            tcpSocket:
+              port: 8099
+      terminationGracePeriodSeconds: 60
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1

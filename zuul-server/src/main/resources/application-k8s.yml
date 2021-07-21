@@ -1,0 +1,36 @@
+server:
+  port: 7777
+spring:
+  application:
+    name: zuul-server
+eureka:
+  client:
+    registry-fetch-interval-seconds: 5
+    service-url:
+      defaultZone: http://eureka-server.blog:8761/eureka/
+  instance:
+    leaseRenewalIntervalInSeconds: 10
+    health-check-url-path: /actuator/health
+    instance-id: ${spring.cloud.client.ip-address}:${server.port}
+    # 打开注册中心Status显示修改
+    prefer-ip-address: true
+    hostname: ${spring.cloud.client.ip-address}
+zuul:
+  ignored-services: '${spring.application.name}'
+  add-host-header: true
+  add-proxy-headers: true
+  sensitive-headers:
+  force-original-query-string-encoding: true
+  ignored-patterns: /info,/health
+  retryable: true
+  routes:
+    baidu:
+      path: /baidu
+      url: https://www.baidu.com
+    users:
+      path: /users/**
+      service-id: apps-users
+info:
+  version: @project.version@
+  groupId: @project.groupId@
+  artifactId: @project.artifactId@
